@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.16)
+project(LibrariesProject CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(POSITION_INDEPENDENT_CODE ON)
+add_subdirectory(NumberLib)
+add_subdirectory(VectorLib)
+add_subdirectory(Main)
