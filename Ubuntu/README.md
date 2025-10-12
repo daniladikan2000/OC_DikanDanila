@@ -1,14 +1,13 @@
-# Libraries for Ubuntu
+# C++ Libraries Project for Ubuntu
 
-Этот проект демонстрирует создание и использование статической и динамической библиотек на C++ с использованием CMake.
+This project demonstrates the creation and usage of static (.a) and shared (.so) libraries in C++ using CMake.
 
 ## Dependencies
 
-Для сборки и запуска проекта вам понадобятся:
-- `build-essential` (компилятор g++, make и т.д.)
+- `build-essential` (g++, make, etc.)
 - `cmake`
 
-Установка зависимостей:
+To install dependencies, run:
 ```bash
 sudo apt update
 sudo apt install build-essential cmake
