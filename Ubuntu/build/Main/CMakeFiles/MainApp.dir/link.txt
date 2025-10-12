@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/MainApp.dir/main.cpp.o -o MainApp  -Wl,-rpath,/home/dikan-danila/OC_DikanDanila/Ubuntu/build/VectorLib ../VectorLib/libVectorLib.so ../NumberLib/libNumberLib.a 
