@@ -1,0 +1,27 @@
+# Visual Studio user files
+.vs/
+*.suo
+*.user
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+Win32/
+build/
+bld/
+[Bb]in/
+[Oo]bj/
+*.log
+
+# C++ compiled files
+*.obj
+*.pdb
+*.exe
+*.dll
+*.lib
+*.ilk
+*.sbr
+*.pch
+*.idb
