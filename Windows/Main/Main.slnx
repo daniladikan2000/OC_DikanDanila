@@ -1,0 +1,11 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="Main/Main.vcxproj" Id="16f9e8e6-8493-41db-b340-1c8407e9bf88" />
+  <Project Path="NumberLib/NumberLib.vcxproj" Id="544b425e-8494-4e33-a72b-8c8e517595fc" />
+  <Project Path="VectorLib/VectorLib.vcxproj" Id="32dcedaa-b085-42a3-ba6e-acb5d3628d6c">
+    <BuildDependency Project="NumberLib/NumberLib.vcxproj" />
+  </Project>
+</Solution>
