@@ -1,3 +1,10 @@
+# JetBrains IDE (CLion, IntelliJ, etc.)
+.idea/
+cmake-build-*/
+*.iws
+*.iml
+*.ipr
+
 # Visual Studio user files
 .vs/
 *.suo
