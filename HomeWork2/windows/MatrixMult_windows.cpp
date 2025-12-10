@@ -5,7 +5,6 @@
 #include <cmath>
 #include <iomanip>
 #include <algorithm>
-#include <string>
 
 using Matrix = std::vector<std::vector<int>>;
 
@@ -18,48 +17,24 @@ struct CommonData {
     int num_blocks;
 };
 
-struct TaskManager {
-    CRITICAL_SECTION mtx;
-    int next_block_i = 0;
-    int next_block_j = 0;
-};
-
-struct ThreadFuncParams {
+struct ThreadParams {
     CommonData* data;
-    TaskManager* tasks;
+    int thread_id;
+    int num_threads;
 };
 
 DWORD WINAPI worker_winapi(LPVOID lpParam) {
-    ThreadFuncParams* params = static_cast<ThreadFuncParams*>(lpParam);
+    ThreadParams* params = static_cast<ThreadParams*>(lpParam);
     CommonData* data = params->data;
-    TaskManager* tasks = params->tasks;
 
-    while (TRUE) {
-        int block_i = -1;
-        int block_j = -1;
+    int total_tasks = data->num_blocks * data->num_blocks;
 
-        EnterCriticalSection(&tasks->mtx);
-
-        if (tasks->next_block_i < data->num_blocks) {
-            block_i = tasks->next_block_i;
-            block_j = tasks->next_block_j;
-
-            tasks->next_block_j++;
-            if (tasks->next_block_j >= data->num_blocks) {
-                tasks->next_block_j = 0;
-                tasks->next_block_i++;
-            }
-        }
-
-        LeaveCriticalSection(&tasks->mtx);
-
-        if (block_i == -1) {
-            break;
-        }
+    for (int task_idx = params->thread_id; task_idx < total_tasks; task_idx += params->num_threads) {
+        int block_i = task_idx / data->num_blocks;
+        int block_j = task_idx % data->num_blocks;
 
         int start_row_C = block_i * data->block_size;
         int start_col_C = block_j * data->block_size;
-
         int end_row_C = (std::min)(start_row_C + data->block_size, data->N);
         int end_col_C = (std::min)(start_col_C + data->block_size, data->N);
 
@@ -69,9 +44,11 @@ DWORD WINAPI worker_winapi(LPVOID lpParam) {
 
             for (int i = start_row_C; i < end_row_C; ++i) {
                 for (int j = start_col_C; j < end_col_C; ++j) {
+                    int sum = 0;
                     for (int k = start_col_A; k < end_col_A; ++k) {
-                        (*data->C)[i][j] += (*data->A)[i][k] * (*data->B)[k][j];
+                        sum += (*data->A)[i][k] * (*data->B)[k][j];
                     }
+                    (*data->C)[i][j] += sum;
                 }
             }
         }
@@ -81,7 +58,6 @@ DWORD WINAPI worker_winapi(LPVOID lpParam) {
 
 int main() {
     setlocale(LC_ALL, "Russian");
-
     const int N = 48;
     Matrix A(N, std::vector<int>(N));
     Matrix B(N, std::vector<int>(N));
@@ -93,93 +69,39 @@ int main() {
         }
     }
 
-    std::cout << "--- Однопоточное умножение ---" << std::endl;
-    Matrix C_single(N, std::vector<int>(N, 0));
-    auto start_time = std::chrono::high_resolution_clock::now();
-
-    for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < N; ++j) {
-            for (int k = 0; k < N; ++k) {
-                C_single[i][j] += A[i][k] * B[k][j];
-            }
-        }
-    }
-
-    auto end_time = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> single_duration = end_time - start_time;
-    std::cout << "Время выполнения: " << single_duration.count() << " мс" << std::endl;
-
-    std::cout << "\n--- Многопоточное умножение (windows.h) ---" << std::endl;
+    std::cout << " Windows API" << std::endl;
 
     SYSTEM_INFO sysInfo;
     GetSystemInfo(&sysInfo);
-    const int num_hardware_threads = sysInfo.dwNumberOfProcessors;
+    int num_hardware_threads = sysInfo.dwNumberOfProcessors;
+    if (num_hardware_threads == 0) num_hardware_threads = 4;
 
-    std::cout << "Используем пул потоков: " << num_hardware_threads << " (ядер/потоков в системе)" << std::endl;
-    std::cout << std::setw(10) << "k (блок) "
-        << std::setw(15) << "Блоков (задач) "
-        << std::setw(15) << "Потоков (размер пула) "
-        << std::setw(15) << "Время (мс)" << std::endl;
+    std::cout << std::setw(10) << "BlockSize" << std::setw(15) << "Time (ms)" << std::endl;
 
     for (int k = 1; k <= N; ++k) {
         int block_size = k;
         Matrix C_multi(N, std::vector<int>(N, 0));
-
         std::vector<HANDLE> threadHandles(num_hardware_threads);
+        std::vector<ThreadParams> threadParamsList(num_hardware_threads);
 
-        int num_blocks = static_cast<int>(ceil(static_cast<double>(N) / block_size));
-        int total_tasks = num_blocks * num_blocks;
+        int num_blocks = (N + block_size - 1) / block_size;
+        CommonData common_data{ &A, &B, &C_multi, N, block_size, num_blocks };
 
-        CommonData common_data;
-        common_data.A = &A;
-        common_data.B = &B;
-        common_data.C = &C_multi;
-        common_data.N = N;
-        common_data.block_size = block_size;
-        common_data.num_blocks = num_blocks;
-
-        TaskManager task_manager;
-        task_manager.next_block_i = 0;
-        task_manager.next_block_j = 0;
-
-        InitializeCriticalSection(&task_manager.mtx);
-
-        ThreadFuncParams params = { &common_data, &task_manager };
-
-        start_time = std::chrono::high_resolution_clock::now();
+        auto start_time = std::chrono::high_resolution_clock::now();
 
         for (int i = 0; i < num_hardware_threads; ++i) {
-            threadHandles[i] = CreateThread(
-                NULL,
-                0,
-                worker_winapi,
-                &params,
-                0,
-                NULL
-            );
+            threadParamsList[i] = { &common_data, i, num_hardware_threads };
+
+            threadHandles[i] = CreateThread(NULL, 0, worker_winapi, &threadParamsList[i], 0, NULL);
         }
 
-        WaitForMultipleObjects(
-            num_hardware_threads,
-            threadHandles.data(),
-            TRUE,
-            INFINITE
-        );
+        WaitForMultipleObjects(num_hardware_threads, threadHandles.data(), TRUE, INFINITE);
 
-        for (int i = 0; i < num_hardware_threads; ++i) {
-            CloseHandle(threadHandles[i]);
-        }
+        for (int i = 0; i < num_hardware_threads; ++i) CloseHandle(threadHandles[i]);
 
-        end_time = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double, std::milli> multi_duration = end_time - start_time;
-
-        DeleteCriticalSection(&task_manager.mtx);
-
-        std::cout << std::setw(10) << block_size
-            << std::setw(15) << total_tasks
-            << std::setw(15) << num_hardware_threads
-            << std::setw(15) << multi_duration.count() << std::endl;
+        auto end_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double, std::milli> dur = end_time - start_time;
+        std::cout << std::setw(10) << block_size << std::setw(15) << dur.count() << std::endl;
     }
-
     return 0;
 }
