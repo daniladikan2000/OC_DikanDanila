@@ -50,7 +50,7 @@ void worker_std(CommonData* data, int thread_id, int num_threads) {
 
 int main() {
     setlocale(LC_ALL, "Russian");
-    const int N = 48; // Размер матрицы
+    const int N = 48;
     Matrix A(N, std::vector<int>(N));
     Matrix B(N, std::vector<int>(N));
 
@@ -68,10 +68,10 @@ int main() {
 
     for (int k = 1; k <= N; ++k) {
         int block_size = k;
-        Matrix C_multi(N, std::vector<int>(N, 0)); // Обнуляем результат
+        Matrix C_multi(N, std::vector<int>(N, 0));
         std::vector<std::thread> threads;
 
-        int num_blocks = (N + block_size - 1) / block_size; // Округление вверх
+        int num_blocks = (N + block_size - 1) / block_size;
         int total_tasks = num_blocks * num_blocks;
 
         CommonData common_data{ &A, &B, &C_multi, N, block_size, num_blocks };
